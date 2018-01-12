@@ -48,11 +48,11 @@ import common.helpers  # noqa
 # unique to your accounts. These are used when constructing connection strings
 # for the Batch and Storage client objects.
 _BATCH_ACCOUNT_NAME = 'chiba1ba'
-_BATCH_ACCOUNT_KEY = 'EZZKuh3n5j/1jyvr/dg9VFE8V1W7EU1kOU9GTAl8vRPB3rIVgLG+qPjiTIiwWDM4qWO2x2iqfAoOOimwrqanNw=='
+_BATCH_ACCOUNT_KEY = ''
 _BATCH_ACCOUNT_URL = 'https://chiba1ba.japaneast.batch.azure.com'
 
 _STORAGE_ACCOUNT_NAME = 'chiba1sa'
-_STORAGE_ACCOUNT_KEY = 'NmFEui7A9gA2y/Zp45fToo7Q19in5E7jxlg0vrPaxadobEuoDK3fqIKcpoeKry8wcdAEJpjsoyB8Fv5fR8rs+Q=='
+_STORAGE_ACCOUNT_KEY = ''
 
 _POOL_ID = 'PythonTutorialPool'
 _POOL_NODE_COUNT = 2
