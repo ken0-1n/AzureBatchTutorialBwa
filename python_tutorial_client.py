@@ -29,6 +29,7 @@ import datetime
 import os
 import sys
 import time
+import ConfigParser
 
 try:
     input = raw_input
@@ -44,56 +45,7 @@ sys.path.append('.')
 sys.path.append('..')
 import common.helpers  # noqa
 
-# Update the Batch and Storage account credential strings below with the values
-# unique to your accounts. These are used when constructing connection strings
-# for the Batch and Storage client objects.
-_BATCH_ACCOUNT_NAME = 'chiba1ba'
-_BATCH_ACCOUNT_KEY = ''
-_BATCH_ACCOUNT_URL = 'https://chiba1ba.japaneast.batch.azure.com'
-
-_STORAGE_ACCOUNT_NAME = 'chiba1sa'
-_STORAGE_ACCOUNT_KEY = ''
-
-_POOL_ID = 'PythonTutorialPool'
-_POOL_NODE_COUNT = 2
-_POOL_VM_SIZE = 'BASIC_A2'
-_NODE_OS_PUBLISHER = 'Canonical'
-_NODE_OS_OFFER = 'UbuntuServer'
-_NODE_OS_SKU = '16'
-
-_JOB_ID = 'PythonTutorialJob'
-
 _TUTORIAL_TASK_FILE = 'python_bwa_task.py'
-
-
-def query_yes_no(question, default="yes"):
-    """
-    Prompts the user for yes/no input, displaying the specified question text.
-
-    :param str question: The text of the prompt for input.
-    :param str default: The default if the user hits <ENTER>. Acceptable values
-    are 'yes', 'no', and None.
-    :rtype: str
-    :return: 'yes' or 'no'
-    """
-    valid = {'y': 'yes', 'n': 'no'}
-    if default is None:
-        prompt = ' [y/n] '
-    elif default == 'yes':
-        prompt = ' [Y/n] '
-    elif default == 'no':
-        prompt = ' [y/N] '
-    else:
-        raise ValueError("Invalid default answer: '{}'".format(default))
-
-    while 1:
-        choice = input(question + prompt).lower()
-        if default and not choice:
-            return default
-        try:
-            return valid[choice[0]]
-        except (KeyError, IndexError):
-            print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
 def print_batch_exception(batch_exception):
@@ -128,9 +80,6 @@ def get_resourcefile(block_blob_client, container_name, blob_name):
     :return: A ResourceFile initialized with a SAS URL appropriate for Batch
     tasks.
     """
-    print('Getting resource file information of {} on [{}]...'.format(file_path,
-                                                          container_name))
-
     sas_token = block_blob_client.generate_blob_shared_access_signature(
         container_name,
         blob_name,
@@ -145,33 +94,8 @@ def get_resourcefile(block_blob_client, container_name, blob_name):
                                     blob_source=sas_url)
 
 
-def get_container_sas_token(block_blob_client,
-                            container_name, blob_permissions):
-    """
-    Obtains a shared access signature granting the specified permissions to the
-    container.
-
-    :param block_blob_client: A blob service client.
-    :type block_blob_client: `azure.storage.blob.BlockBlobService`
-    :param str container_name: The name of the Azure Blob storage container.
-    :param BlobPermissions blob_permissions:
-    :rtype: str
-    :return: A SAS token granting the specified permissions to the container.
-    """
-    # Obtain the SAS token for the container, setting the expiry time and
-    # permissions. In this case, no start time is specified, so the shared
-    # access signature becomes valid immediately.
-    container_sas_token = \
-        block_blob_client.generate_container_shared_access_signature(
-            container_name,
-            permission=blob_permissions,
-            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=2))
-
-    return container_sas_token
-
-
 def create_pool(batch_service_client, pool_id,
-                publisher, offer, sku):
+    publisher, offer, sku, pool_vm_size, pool_node_count, task_commands):
     """
     Creates a pool of compute nodes with the specified OS settings.
 
@@ -185,35 +109,6 @@ def create_pool(batch_service_client, pool_id,
     :param str sku: Marketplace image sku
     """
     print('Creating pool [{}]...'.format(pool_id))
-
-    # Create a new pool of Linux compute nodes using an Azure Virtual Machines
-    # Marketplace image. For more information about creating pools of Linux
-    # nodes, see:
-    # https://azure.microsoft.com/documentation/articles/batch-linux-nodes/
-
-    # Specify the commands for the pool's start task. The start task is run
-    # on each node as it joins the pool, and when it's rebooted or re-imaged.
-    # We use the start task to prep the node for running our task script.
-    task_commands = [
-        # Install pip
-        'curl -fSsL https://bootstrap.pypa.io/get-pip.py | python',
-        # Install the azure-storage module so that the task script can access
-        # Azure Blob storage, pre-cryptography version
-        'pip install azure-storage==0.32.0',
-        #
-        'apt-get update && apt-get install -y wget bzip2 make gcc zlib1g-dev',
-        # install bwa
-        'wget http://sourceforge.net/projects/bio-bwa/files/bwa-0.7.15.tar.bz2',
-        'tar xjvf bwa-0.7.15.tar.bz2',
-        'cd bwa-0.7.15',
-        'make',
-        'cd ..',
-        'cp -rp bwa-0.7.15 $AZ_BATCH_NODE_SHARED_DIR',
-        # Copy the python_tutorial_task.py script to the "shared" directory
-        'wget https://github.com/ken0-1n/AzureBatchTutorialBwa/archive/v0.1.0.tar.gz',
-        'tar xzvf v0.1.0.tar.gz',
-        'cp -p AzureBatchTutorialBwa-0.1.0/{} $AZ_BATCH_NODE_SHARED_DIR'.format(_TUTORIAL_TASK_FILE)
-        ]
 
     # Get the node agent SKU and image reference for the virtual machine
     # configuration.
@@ -230,8 +125,8 @@ def create_pool(batch_service_client, pool_id,
         virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
             image_reference=image_ref_to_use,
             node_agent_sku_id=sku_to_use),
-        vm_size=_POOL_VM_SIZE,
-        target_dedicated_nodes=_POOL_NODE_COUNT,
+        vm_size=pool_vm_size,
+        target_dedicated_nodes=pool_node_count,
         start_task=batch.models.StartTask(
             command_line=common.helpers.wrap_commands_in_shell('linux',
                                                                task_commands),
@@ -268,8 +163,8 @@ def create_job(batch_service_client, job_id, pool_id):
         raise
 
 
-def add_tasks(batch_service_client, job_id, sample_list, input_files_1, input_files_2, ref_files,
-              output_container_name):
+def get_output_option(batch_service_client,
+              output_container_name,strage_account_name):
     """
     Adds a task for each input file in the collection to the specified job.
 
@@ -286,52 +181,20 @@ def add_tasks(batch_service_client, job_id, sample_list, input_files_1, input_fi
 
     # Obtain a shared access signature that provides write access to the output
     # container to which the tasks will upload their output.
-    output_container_sas_token = get_container_sas_token(
-        blob_client,
-        output_container_name,
-        azureblob.BlobPermissions.WRITE)
+    output_container_sas_token = \
+        blob_client.generate_container_shared_access_signature(
+            output_container_name,
+            permission=azureblob.BlobPermissions.WRITE,
+            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=2))
 
-    print('Adding {} {} tasks to job [{}]...'.format(len(input_files_1),format(len(input_files_2)),job_id))
-
-    tasks = list()
-
-    refgene = ref_files[0].file_path
-    for idx in range(len(input_files_1)):
-
-        command = ['python $AZ_BATCH_NODE_SHARED_DIR/{} '
-                   '--storageaccount {} '
-                   '--storagecontainer {} --sastoken "{}" '
-                   '--bwapath $AZ_BATCH_NODE_SHARED_DIR/{} '
-                   '--refgenome {} --samplename {} '
-                   '--fastq1 {} --fastq2 {}'.format(
-                       _TUTORIAL_TASK_FILE,
-                       _STORAGE_ACCOUNT_NAME,
-                       output_container_name,
-                       output_container_sas_token,
-                       'bwa-0.7.15/bwa',
-                       refgene,
-                       sample_list[idx],
-                       input_files_1[idx].file_path,
-                       input_files_2[idx].file_path)]
-
-        print('command: ' + ' '.join(command))
-
-        fastq_files = [input_files_1[idx], input_files_2[idx]]
-        fastq_files.extend(ref_files)
-
-        print('download files from strage: ')
-        for i in range(len(fastq_files)):
-            print(fastq_files[i].file_path)
-        # for upload_file in upload_files:
-        #    print(upload_file.file_path)
-        tasks.append(batch.models.TaskAddParameter(
-                'topNtask{}'.format(idx),
-                common.helpers.wrap_commands_in_shell('linux', command),
-                resource_files=fastq_files
-                )
-        )
-
-    batch_service_client.task.add_collection(job_id, tasks)
+    upload_command = ['--storageaccount {} '
+                      '--storagecontainer {} '
+                      '--sastoken "{}" '.format(
+                      strage_account_name,
+                      output_container_name,
+                      output_container_sas_token)]
+  
+    return upload_command
 
 
 def wait_for_tasks_to_complete(batch_service_client, job_id, timeout):
@@ -368,143 +231,147 @@ def wait_for_tasks_to_complete(batch_service_client, job_id, timeout):
                        "timeout period of " + str(timeout))
 
 
-def download_blobs_from_container(block_blob_client,
-                                  container_name, directory_path):
-    """
-    Downloads all blobs from the specified Azure Blob storage container.
-
-    :param block_blob_client: A blob service client.
-    :type block_blob_client: `azure.storage.blob.BlockBlobService`
-    :param container_name: The Azure Blob storage container from which to
-     download files.
-    :param directory_path: The local directory to which to download the files.
-    """
-    print('Downloading all files from container [{}]...'.format(
-        container_name))
-
-    container_blobs = block_blob_client.list_blobs(container_name)
-
-    for blob in container_blobs.items:
-        destination_file_path = os.path.join(directory_path, blob.name)
-
-        block_blob_client.get_blob_to_path(container_name,
-                                           blob.name,
-                                           destination_file_path)
-
-        print('  Downloaded blob [{}] from container [{}] to {}'.format(
-            blob.name,
-            container_name,
-            destination_file_path))
-
-    print('  Download complete!')
-
-
 if __name__ == '__main__':
 
     start_time = datetime.datetime.now().replace(microsecond=0)
     print('Sample start: {}'.format(start_time))
     print()
 
+    conf = ConfigParser.SafeConfigParser()
+
     sample_list = []
+    fastq_container = []
     fastq1_list = []
     fastq2_list = []
     samplesheet = sys.argv[1]
+    output_container_name = sys.argv[2]
+    conf.read(sys.argv[3])
     with open(samplesheet, 'r') as f:
         for line in f:
             line = line.rstrip("\n")
             print("line : " + line)
             F = line.split(',') 
             sample_list.append(F[0])
-            fastq1_list.append(F[1])
-            fastq2_list.append(F[2])
+            fastq_container.append(F[1])
+            fastq1_list.append(F[2])
+            fastq2_list.append(F[3])
 
     # Create the blob client, for use in obtaining references to
     # blob storage containers and uploading files to containers.
     blob_client = azureblob.BlockBlobService(
-        account_name=_STORAGE_ACCOUNT_NAME,
-        account_key=_STORAGE_ACCOUNT_KEY)
+        account_name=conf.get("client","STORAGE_ACCOUNT_NAME"),
+        account_key=conf.get("client","STORAGE_ACCOUNT_KEY"))
 
     # Use the blob client to create the containers in Azure Storage if they
     # don't yet exist.
-    output_container_name = 'output'
     blob_client.create_container(output_container_name, fail_on_exist=False)
-
 
     # Create a Batch service client. We'll now be interacting with the Batch
     # service in addition to Storage
-    credentials = batchauth.SharedKeyCredentials(_BATCH_ACCOUNT_NAME,
-                                                 _BATCH_ACCOUNT_KEY)
+    credentials = batchauth.SharedKeyCredentials(
+        conf.get("client","BATCH_ACCOUNT_NAME"),
+        conf.get("client","BATCH_ACCOUNT_KEY"))
 
     batch_client = batch.BatchServiceClient(
         credentials,
-        base_url=_BATCH_ACCOUNT_URL)
+        base_url=conf.get("client","BATCH_ACCOUNT_URL"))
 
     # Create the pool that will contain the compute nodes that will execute the
     # tasks. The resource files we pass in are used for configuring the pool's
     # start task, which is executed each time a node first joins the pool (or
     # is rebooted or re-imaged).
+    task_commands = [
+        # Install pip
+        'curl -fSsL https://bootstrap.pypa.io/get-pip.py | python',
+        # Install the azure-storage module so that the task script can access
+        # Azure Blob storage, pre-cryptography version
+        'pip install azure-storage==0.32.0',
+        #
+        'apt-get update && apt-get install -y wget bzip2 make gcc zlib1g-dev',
+        # install bwa
+        'wget http://sourceforge.net/projects/bio-bwa/files/bwa-0.7.15.tar.bz2',
+        'tar xjvf bwa-0.7.15.tar.bz2',
+        'cd bwa-0.7.15',
+        'make',
+        'cd ..',
+        'cp -rp bwa-0.7.15 $AZ_BATCH_NODE_SHARED_DIR',
+        # Copy the python_tutorial_task.py script to the "shared" directory
+        'wget https://github.com/ken0-1n/AzureBatchTutorialBwa/archive/v0.1.0.tar.gz',
+        'tar xzvf v0.1.0.tar.gz',
+        'cp -p AzureBatchTutorialBwa-0.1.0/{} $AZ_BATCH_NODE_SHARED_DIR'.format(_TUTORIAL_TASK_FILE)
+        ]
     create_pool(batch_client,
-                _POOL_ID,
-                _NODE_OS_PUBLISHER,
-                _NODE_OS_OFFER,
-                _NODE_OS_SKU)
+        conf.get("batch","POOL_ID"),
+        conf.get("batch","NODE_OS_PUBLISHER"),
+        conf.get("batch","NODE_OS_OFFER"),
+        conf.get("batch","NODE_OS_SKU"),
+        conf.get("batch","POOL_VM_SIZE"),
+        conf.get("batch","POOL_NODE_COUNT"),
+        task_commands)
 
     # Create the job that will run the tasks.
-    create_job(batch_client, _JOB_ID, _POOL_ID)
-
+    create_job(batch_client,
+        conf.get("batch","JOB_ID"),
+        conf.get("batch","POOL_ID"))
 
     # Get the strage file information.
     input_container_name = 'fastq'
-    input_files_1 = [
-        get_resourcefile(blob_client, input_container_name, file_path)
-        for file_path in fastq1_list]
-    input_files_2 = [
-        get_resourcefile(blob_client, input_container_name, file_path)
-        for file_path in fastq2_list]
+    input_files1_resources = [
+        get_resourcefile(blob_client, fastq_container[idx], fastq1_list[idx])
+        for idx in range(len(fastq1_list))]
+    input_files2_resources = [
+        get_resourcefile(blob_client, fastq_container[idx], fastq2_list[idx])
+        for idx in range(len(fastq2_list))]
 
     # get reference genome
-    ref_container_name = 'ref'
-    ref_file_paths = ['hg19/chr22.fa',
-                      'hg19/chr22.fa.amb',
-                      'hg19/chr22.fa.ann',
-                      'hg19/chr22.fa.bwt',
-                      'hg19/chr22.fa.pac',
-                      'hg19/chr22.fa.sa']
-    ref_files = [
+    ref_container_name = conf.get("ref", "REF_CONTAINER_NAME")
+    ref_file_paths = conf.get("ref", "REF_FILE_PATH").split(",")
+    ref_file_resources = [
         get_resourcefile(blob_client, ref_container_name, ref_file_path)
         for ref_file_path in ref_file_paths]
-   
+
     # Add the tasks to the job. We need to supply a container shared access
     # signature (SAS) token for the tasks so that they can upload their output
     # to Azure Storage.
-    add_tasks(batch_client,
-              _JOB_ID,
-              sample_list,
-              input_files_1,
-              input_files_2,
-              ref_files,
-              output_container_name)
+    upload_option = get_output_option(batch_client,
+                    output_container_name,
+                    conf.get("client","STORAGE_ACCOUNT_NAME"))
+
+    tasks = list()
+    for idx in range(len(input_files1_resources)):
+        command = ['python $AZ_BATCH_NODE_SHARED_DIR/{} '
+                   '--bwapath $AZ_BATCH_NODE_SHARED_DIR/{} '
+                   '--refgenome {} --samplename {} '
+                   '--fastq1 {} --fastq2 {} '.format(
+                       _TUTORIAL_TASK_FILE,
+                       'bwa-0.7.15/bwa',
+                       ref_file_resources[0].file_path,
+                       sample_list[idx],
+                       input_files1_resources[idx].file_path,
+                       input_files2_resources[idx].file_path)]
+        command_upload = command[0] + upload_option[0]
+
+        print('command: ' + command_upload)
+
+        r_files = [input_files1_resources[idx], input_files2_resources[idx]]
+        r_files.extend(ref_file_resources)
+        
+        tasks.append(batch.models.TaskAddParameter(
+                'topNtask{}'.format(idx),
+                common.helpers.wrap_commands_in_shell('linux', [command_upload]),
+                resource_files=r_files
+                )
+        )
+    batch_client.task.add_collection(conf.get("batch","JOB_ID"), tasks)
+
 
     # Pause execution until tasks reach Completed state.
     wait_for_tasks_to_complete(batch_client,
-                               _JOB_ID,
-                               datetime.timedelta(minutes=120))
+                               conf.get("batch","JOB_ID"),
+                               datetime.timedelta(minutes=int(conf.get("batch","TIME_OUT"))))
 
     print("  Success! All tasks reached the 'Completed' state within the "
           "specified timeout period.")
-
-    # Download the task output files from the output Storage container to a
-    # local directory. Note that we could have also downloaded the output
-    # files directly from the compute nodes themselves.
-    # download_blobs_from_container(blob_client,
-    #                               output_container_name,
-    #                               os.path.expanduser('~'))
-
-    # Clean up storage resources
-    print('Deleting containers...')
-    # blob_client.delete_container(app_container_name)
-    # blob_client.delete_container(input_container_name)
-    # blob_client.delete_container(output_container_name)
 
     # Print out some timing info
     end_time = datetime.datetime.now().replace(microsecond=0)
@@ -514,11 +381,5 @@ if __name__ == '__main__':
     print()
 
     # Clean up Batch resources (if the user so chooses).
-    if query_yes_no('Delete job?') == 'yes':
-        batch_client.job.delete(_JOB_ID)
-
-    if query_yes_no('Delete pool?') == 'yes':
-        batch_client.pool.delete(_POOL_ID)
-
-    print()
-    input('Press ENTER to exit...')
+    batch_client.job.delete(conf.get("batch","JOB_ID"))
+    batch_client.pool.delete(conf.get("batch","POOL_ID"))
