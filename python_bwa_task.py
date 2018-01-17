@@ -40,11 +40,11 @@ if __name__ == '__main__':
     parser.add_argument('--storageaccount')
     parser.add_argument('--storagecontainer')
     parser.add_argument('--sastoken')
-    parser.add_argument('--bwapath', required=True)
-    parser.add_argument('--fastq1', required=True)
-    parser.add_argument('--fastq2', required=True)
-    parser.add_argument('--refgenome', required=True)
-    parser.add_argument('--samplename', required=True)
+    parser.add_argument('--bwapath')
+    parser.add_argument('--fastq1')
+    parser.add_argument('--fastq2')
+    parser.add_argument('--refgenome')
+    parser.add_argument('--samplename')
     args = parser.parse_args()
 
     bwa = os.path.realpath(args.bwapath)
@@ -58,8 +58,8 @@ if __name__ == '__main__':
 
     sam =  open(output_sam, 'w')
     error =  open(error_log, 'w')
-    proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # proc = subprocess.Popen(['echo','"to stdout"'], stdout=subprocess.PIPE, stderr=FNULL)
     # proc = subprocess.Popen([bwa], stdout=FNULL, stderr=subprocess.PIPE)
     output = proc.stdout
