@@ -1,5 +1,5 @@
 root	ALL=(ALL:ALL) ALL
-g13	ALL=(ALL) NOPASSWD:ALL
+%sudo	ALL=(ALL) NOPASSWD:ALL
 Defaults	env_reset
 Defaults	mail_badpass
 Defaults	secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
