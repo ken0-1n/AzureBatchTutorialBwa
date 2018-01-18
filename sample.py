@@ -15,12 +15,14 @@ if __name__ == '__main__':
     container = "output"
     testlog_path = os.path.realpath("test.log")
 
+    blob_client = azureblob.BlockBlobService(account_name=san,
+                                             sas_token=sat)
+
+    print(os.getcwd())
     print('Uploading file {} to container [{}]...'.format(
         testlog_path,
         container))
 
-    blob_client = azureblob.BlockBlobService(account_name=san,
-                                             sas_token=sat)
     blob_client.create_blob_from_path(container,
                                       "test.log",
                                       testlog_path)
