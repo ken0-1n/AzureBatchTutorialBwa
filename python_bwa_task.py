@@ -58,8 +58,8 @@ if __name__ == '__main__':
 
     sam =  open(output_sam, 'w')
     error =  open(error_log, 'w')
-    proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # proc = subprocess.Popen(['echo','"to stdout"'], stdout=subprocess.PIPE, stderr=FNULL)
     # proc = subprocess.Popen([bwa], stdout=FNULL, stderr=subprocess.PIPE)
     output = proc.stdout
@@ -69,6 +69,7 @@ if __name__ == '__main__':
     for line in output:
         error.write(line)
 
+    error.write(ref_fa)
     sam.close()
     error.close()
 
