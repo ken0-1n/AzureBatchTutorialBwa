@@ -58,15 +58,15 @@ if __name__ == '__main__':
     blob_client = azureblob.BlockBlobService(account_name=args.storageaccount,
                                              sas_token=args.sastoken)
 
-    blob_client.get_blob_to_path(args.fastq_container, args.fastq1, args.fastq1)
-    blob_client.get_blob_to_path(args.fastq_container, args.fastq2, args.fastq2)
+    blob_client.get_blob_to_path(args.fastq_container, args.fastq1, os.path.basename(args.fastq1))
+    blob_client.get_blob_to_path(args.fastq_container, args.fastq2, os.path.basename(args.fastq2))
     generator = blob_client.list_blobs(args.ref_container)
     for blob in generator:
-        blob_client.get_blob_to_path(args.ref_container, blob, blob)
+        blob_client.get_blob_to_path(args.ref_container, blob, os.path.basename(blob))
 
-    fastq1 = os.path.realpath(args.fastq1)
-    fastq2 = os.path.realpath(args.fastq2)
-    ref_fa = os.path.realpath(args.ref_genome)
+    fastq1 = os.path.realpath(os.path.basename(args.fastq1))
+    fastq2 = os.path.realpath(os.path.basename(args.fastq2))
+    ref_fa = os.path.realpath(os.path.basename(args.ref_genome))
 
     print(fastq1)
     print(fastq2)
