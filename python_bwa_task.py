@@ -38,21 +38,20 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--storageaccount')
+    parser.add_argument('--storagecontainer')
+    parser.add_argument('--sastoken')
     parser.add_argument('--bwapath')
     parser.add_argument('--fastq1')
     parser.add_argument('--fastq2')
     parser.add_argument('--refgenome')
-    parser.add_argument('--output_sastoken')
-    parser.add_argument('--output_container')
     parser.add_argument('--samplename')
     args = parser.parse_args()
 
     bwa = os.path.realpath(args.bwapath)
-    samplename = args.samplename
-
     fastq1 = os.path.realpath(args.fastq1)
     fastq2 = os.path.realpath(args.fastq2)
     ref_fa = os.path.realpath(args.refgenome)
+    samplename = args.samplename
 
     output_sam = samplename +'.sam'
     error_log = samplename +'.error.log'
