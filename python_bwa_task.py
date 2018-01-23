@@ -38,13 +38,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--storageaccount')
-    parser.add_argument('--sastoken')
     parser.add_argument('--bwapath')
-    parser.add_argument('--fastq_container')
     parser.add_argument('--fastq1')
     parser.add_argument('--fastq2')
-    parser.add_argument('--ref_container')
     parser.add_argument('--refgenome')
+    parser.add_argument('--output_sastoken')
     parser.add_argument('--output_container')
     parser.add_argument('--samplename')
     args = parser.parse_args()
@@ -52,26 +50,10 @@ if __name__ == '__main__':
     bwa = os.path.realpath(args.bwapath)
     samplename = args.samplename
 
-    # Create the blob client using the container's SAS token.
-    # This allows us to create a client that provides write
-    # access only to the container.
-    blob_client = azureblob.BlockBlobService(account_name=args.storageaccount,
-                                             sas_token=args.sastoken)
+    fastq1 = os.path.realpath(args.fastq1)
+    fastq2 = os.path.realpath(args.fastq2)
+    ref_fa = os.path.realpath(args.refgenome)
 
-    blob_client.get_blob_to_path(args.fastq_container, args.fastq1, os.path.basename(args.fastq1))
-    blob_client.get_blob_to_path(args.fastq_container, args.fastq2, os.path.basename(args.fastq2))
-    generator = blob_client.list_blobs(args.ref_container)
-    for blob in generator:
-        blob_client.get_blob_to_path(args.ref_container, blob, os.path.basename(blob))
-
-    fastq1 = os.path.realpath(os.path.basename(args.fastq1))
-    fastq2 = os.path.realpath(os.path.basename(args.fastq2))
-    ref_fa = os.path.realpath(os.path.basename(args.ref_genome))
-
-    print(fastq1)
-    print(fastq2)
-    print(ref_fa)
-    
     output_sam = samplename +'.sam'
     error_log = samplename +'.error.log'
 
@@ -92,8 +74,10 @@ if __name__ == '__main__':
     sam.close()
     error.close()
 
-
     output_sam_path = os.path.realpath(output_sam)
+
+    blob_client = azureblob.BlockBlobService(account_name=args.storageaccount,
+                                             sas_token=args.sastoken)
 
     print('Uploading file {} to container [{}]...'.format(
         output_sam_path,
