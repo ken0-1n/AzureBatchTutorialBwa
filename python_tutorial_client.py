@@ -43,8 +43,6 @@ import azure.batch.batch_auth as batchauth
 import azure.batch.models as batchmodels
 import common.helpers  # noqa
 
-_TUTORIAL_TASK_FILE = 'python_bwa_task.py'
-
 if __name__ == '__main__':
 
     start_time = datetime.datetime.now().replace(microsecond=0)
@@ -94,8 +92,7 @@ if __name__ == '__main__':
                      'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -',
                      'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"',
                      'sudo apt-get update',
-                     'sudo apt-get install -y docker-ce',
-                     'sudo docker pull ken01nn/my_sample']
+                     'sudo apt-get install -y docker-ce']
 
     # Create the pool that will contain the compute nodes that will execute the
     # tasks.
@@ -129,40 +126,40 @@ if __name__ == '__main__':
         client_util.get_resourcefile(blob_client, ref_container_name, ref_file_path)
         for ref_file_path in ref_file_paths]
 
-    # Add the tasks to the job. We need to supply a container shared access
-    # signature (SAS) token for the tasks so that they can upload their output
-    # to Azure Storage.
-    # upload_option = client_util.get_output_option(blob_client,
-    #                 batch_client,
-    #                 output_container_name,
-    #                 conf.get("client","STORAGE_ACCOUNT_NAME"))
-
     output_container_sas_token = \
         blob_client.generate_container_shared_access_signature(
             output_container_name,
             permission=azureblob.BlobPermissions.WRITE,
             expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=2))
 
+    run_elevated = batchmodels.UserIdentity(
+        auto_user=batchmodels.AutoUserSpecification(
+        scope=batchmodels.AutoUserScope.pool,
+        elevation_level=batchmodels.ElevationLevel.admin,
+        )
+    )
+ 
     tasks = list()
-
-    '''
     for idx in range(len(input_files1_resources)):
-        command = ['sudo docker pull ken01nn/my_sample',
-                   'sudo docker run -v /etc:/etc ken01nn/my_sample python /bin/sample.py hogehoge {} "{}" '.format(conf.get("client","STORAGE_ACCOUNT_NAME"), output_container_sas_token)]
 
-        # command = ['python $AZ_BATCH_NODE_SHARED_DIR/{} '
-        #            '--bwapath $AZ_BATCH_NODE_SHARED_DIR/{} '
-        #            '--refgenome {} --samplename {} '
-        #            '--fastq1 {} --fastq2 {} '.format(
-        #                _TUTORIAL_TASK_FILE,
-        #                'bwa-0.7.15/bwa',
-        #                ref_file_resources[0].file_path,
-        #                sample_list[idx],
-        #                input_files1_resources[idx].file_path,
-        #                input_files2_resources[idx].file_path)]
-        # command_upload = command[0] + upload_option[0]
+        command = ['docker pull ken01nn/azure_batch_bwa',
+                   'docker run -v $PWD:/mnt ken01nn/azure_batch_bwa '
+                   'python /bin/python_bwa_task.py '
+                   '--bwapath /bin/bwa-0.7.15/bwa '
+                   '--refgenome {} --samplename {} '
+                   '--fastq1 {} --fastq2 {} '
+                   '--storageaccount {} '
+                   '--storagecontainer {} '
+                   '--sastoken "{}" '.format(
+                       ref_file_resources[0].file_path,
+                       sample_list[idx],
+                       input_files1_resources[idx].file_path,
+                       input_files2_resources[idx].file_path,
+                       conf.get("client","STORAGE_ACCOUNT_NAME"),
+                       output_container_name,
+                       output_container_sas_token)]
 
-        print('command: ' + ";".join(command))
+        print('command: ' + command[1])
 
         r_files = [input_files1_resources[idx], input_files2_resources[idx]]
         r_files.extend(ref_file_resources)
@@ -170,29 +167,12 @@ if __name__ == '__main__':
         tasks.append(batch.models.TaskAddParameter(
                 'topNtask{}'.format(idx),
                 common.helpers.wrap_commands_in_shell('linux', command),
-                resource_files=r_files
+                resource_files=r_files,
+                user_identity=run_elevated
                 )
         )
-    '''
   
-    run_elevated = batchmodels.UserIdentity(
-    auto_user=batchmodels.AutoUserSpecification(
-        scope=batchmodels.AutoUserScope.pool,
-        elevation_level=batchmodels.ElevationLevel.admin,
-        )
-    )
- 
-    command = ['docker pull ken01nn/my_sample',
-               'docker run ken01nn/my_sample python /bin/sample.py hogehoge {} "{}" '.format(conf.get("client","STORAGE_ACCOUNT_NAME"), output_container_sas_token)]
-    print('command: ' + ";".join(command))
-    tasks.append(batch.models.TaskAddParameter(
-            'topNtask',
-            common.helpers.wrap_commands_in_shell('linux', command),
-            user_identity=run_elevated
-            )
-    )
     batch_client.task.add_collection(conf.get("batch","JOB_ID"), tasks)
-
 
     # Pause execution until tasks reach Completed state.
     client_util.wait_for_tasks_to_complete(batch_client,
