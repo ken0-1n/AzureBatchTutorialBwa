@@ -38,28 +38,47 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--storageaccount')
-    parser.add_argument('--storagecontainer')
     parser.add_argument('--sastoken')
     parser.add_argument('--bwapath')
+    parser.add_argument('--fastq_container')
     parser.add_argument('--fastq1')
     parser.add_argument('--fastq2')
+    parser.add_argument('--ref_container')
     parser.add_argument('--refgenome')
+    parser.add_argument('--output_container')
     parser.add_argument('--samplename')
     args = parser.parse_args()
 
     bwa = os.path.realpath(args.bwapath)
+    samplename = args.samplename
+
+    # Create the blob client using the container's SAS token.
+    # This allows us to create a client that provides write
+    # access only to the container.
+    blob_client = azureblob.BlockBlobService(account_name=args.storageaccount,
+                                             sas_token=args.sastoken)
+
+    blob_client.get_blob_to_path(args.fastq_container, args.fastq1, args.fastq1)
+    blob_client.get_blob_to_path(args.fastq_container, args.fastq2, args.fastq2)
+    generator = blob_client.list_blobs(args.ref_container)
+    for blob in generator:
+        blob_client.get_blob_to_path(args.ref_container, blob, blob)
+
     fastq1 = os.path.realpath(args.fastq1)
     fastq2 = os.path.realpath(args.fastq2)
-    ref_fa = os.path.realpath(args.refgenome)
-    samplename = args.samplename
+    ref_fa = os.path.realpath(args.ref_genome)
+
+    print(fastq1)
+    print(fastq2)
+    print(ref_fa)
     
     output_sam = samplename +'.sam'
     error_log = samplename +'.error.log'
 
     sam =  open(output_sam, 'w')
     error =  open(error_log, 'w')
-    proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # proc = subprocess.Popen([bwa, 'mem', ref_fa, fastq1, fastq2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(['ls','-l',ref_fa+'.amb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # proc = subprocess.Popen(['find','/','-name','chr22.fa'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # proc = subprocess.Popen(['echo','"to stdout"'], stdout=subprocess.PIPE, stderr=FNULL)
     # proc = subprocess.Popen([bwa], stdout=FNULL, stderr=subprocess.PIPE)
@@ -73,11 +92,6 @@ if __name__ == '__main__':
     sam.close()
     error.close()
 
-    # Create the blob client using the container's SAS token.
-    # This allows us to create a client that provides write
-    # access only to the container.
-    blob_client = azureblob.BlockBlobService(account_name=args.storageaccount,
-                                             sas_token=args.sastoken)
 
     output_sam_path = os.path.realpath(output_sam)
 
