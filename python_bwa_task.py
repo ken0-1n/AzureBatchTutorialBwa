@@ -50,7 +50,7 @@ if __name__ == '__main__':
     bwa = os.path.realpath(args.bwapath)
     fastq1 = os.path.realpath('/mnt/' + args.fastq1)
     fastq2 = os.path.realpath('/mnt/' + args.fastq2)
-    ref_fa = os.path.realpath('/mnt/' + args.refgenome))
+    ref_fa = os.path.realpath('/mnt/' + args.refgenome)
     samplename = args.samplename
 
     output_sam = samplename +'.sam'
