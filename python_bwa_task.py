@@ -48,9 +48,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     bwa = os.path.realpath(args.bwapath)
-    fastq1 = os.path.realpath(args.fastq1)
-    fastq2 = os.path.realpath(args.fastq2)
-    ref_fa = os.path.realpath(args.refgenome)
+    fastq1 = os.path.realpath(args.fastq1,starts, start='/mnt')
+    fastq2 = os.path.realpath(args.fastq2, start='/mnt')
+    ref_fa = os.path.realpath(args.refgenome, start='/mnt')
     samplename = args.samplename
 
     output_sam = samplename +'.sam'
